@@ -43,6 +43,18 @@
     ul { list-style: none; }
     img { display: block; max-width: 100%; }
 
+    /* ── GLOBAL PARTICLE CANVAS ── */
+    #globalParticleCanvas {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0;
+    }
+    .navbar, .course-hero, .section,
+    .modulos-section, .incluye-section, .paraquien-section,
+    .metodologia-section, .cert-section, .faq-section,
+    .cta-final, .otros-section, .footer {
+      position: relative; z-index: 1;
+    }
+
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
@@ -1046,7 +1058,7 @@
       <div class="metodo-layout">
         <div>
           <span class="section-tag">— CÓMO ENTRENAMOS</span>
-          <h2 class="section-title" style="font-size: clamp(32px,4vw,56px);">MÉTODO APEX</h2>
+          <h2 class="section-title" style="font-size: clamp(32px,4vw,56px);">MÉTODO<br>APEX</h2>
           <p style="font-size:15px; color: var(--muted); line-height:1.7; margin-top: 20px; margin-bottom: 48px;">
             No somos una academia de videojuegos. Aplicamos metodología de entrenamiento real: cada sesión tiene objetivos, cada dato tiene análisis y cada vuelta tiene feedback.
           </p>
@@ -1320,6 +1332,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     initNoise();
+    initGlobalParticleGrid();
     initCursor();
     initNavbar();
     initMagnetic();
@@ -1327,6 +1340,98 @@
     initTeleCanvas();
     initScrollReveal();
   });
+
+  /* GLOBAL PARTICLE GRID */
+  function initGlobalParticleGrid() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (window.matchMedia('(pointer: coarse)').matches) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.id = 'globalParticleCanvas';
+    canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;';
+    document.body.insertBefore(canvas, document.body.firstChild);
+
+    const ctx = canvas.getContext('2d');
+    const COLS = 28, ROWS = 16, GLOW_RADIUS = 260;
+    let W, H, particles = [], mouse = { x: -9999, y: -9999 }, t = 0;
+
+    function resize() {
+      W = canvas.width  = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      buildGrid();
+    }
+    function buildGrid() {
+      particles = [];
+      const gapX = W / (COLS - 1), gapY = H / (ROWS - 1);
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          particles.push({
+            ox: c * gapX, oy: r * gapY,
+            x:  c * gapX, y:  r * gapY,
+            size: Math.random() > 0.88 ? 1.8 : 0.75,
+            baseAlpha: 0.05 + Math.random() * 0.055,
+          });
+        }
+      }
+    }
+    document.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; }, { passive: true });
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      t += 0.006;
+
+      if (mouse.x > 0) {
+        const mg = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, GLOW_RADIUS);
+        mg.addColorStop(0, 'rgba(0,229,255,0.055)');
+        mg.addColorStop(0.5, 'rgba(0,229,255,0.015)');
+        mg.addColorStop(1, 'transparent');
+        ctx.fillStyle = mg; ctx.fillRect(0, 0, W, H);
+      }
+
+      particles.forEach(p => {
+        const dx = mouse.x - p.ox, dy = mouse.y - p.oy;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const force = Math.max(0, 1 - dist / GLOW_RADIUS);
+        const wave = Math.sin(t + p.ox * 0.018 + p.oy * 0.012) * 1.8;
+        p.x = p.ox + dx * force * 0.07 + wave * 0.25;
+        p.y = p.oy + dy * force * 0.07 + wave * 0.25;
+      });
+
+      ctx.lineWidth = 0.5;
+      for (let r = 0; r < ROWS; r++) {
+        ctx.beginPath(); ctx.strokeStyle = 'rgba(255,255,255,0.028)';
+        for (let c = 0; c < COLS; c++) {
+          const p = particles[r * COLS + c];
+          if (c === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+      }
+      for (let c = 0; c < COLS; c++) {
+        ctx.beginPath(); ctx.strokeStyle = 'rgba(255,255,255,0.028)';
+        for (let r = 0; r < ROWS; r++) {
+          const p = particles[r * COLS + c];
+          if (r === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+      }
+
+      particles.forEach(p => {
+        const dx = mouse.x - p.ox, dy = mouse.y - p.oy;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const glow = Math.max(0, 1 - dist / GLOW_RADIUS);
+        const alpha = p.baseAlpha + glow * 0.55;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size + glow * 1.4, 0, Math.PI * 2);
+        ctx.fillStyle = glow > 0.25 ? `rgba(0,229,255,${alpha})` : `rgba(255,255,255,${alpha})`;
+        ctx.fill();
+      });
+
+      requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', resize, { passive: true });
+    resize(); draw();
+  }
 
   /* NOISE */
   function initNoise() {

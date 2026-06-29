@@ -48,6 +48,34 @@ img { display: block; max-width: 100%; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
 
+/* ── GLOBAL PARTICLE GRID CANVAS ── */
+#globalParticleCanvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Ensure all page sections stack above the global canvas */
+.navbar,
+.mobile-overlay,
+.hero,
+.marquee-bar,
+.section,
+.academia-section,
+.disc-section,
+.hardware-section,
+.community-section,
+.competitions-section,
+.str-section,
+.empresas-section,
+.newsletter-section,
+.footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* NOISE OVERLAY */
 /* ── NOISE CANVAS ── */
 .noise-canvas {
   position: fixed;
@@ -396,10 +424,10 @@ img { display: block; max-width: 100%; }
 
 .hero-title {
   font-family: var(--font);
-  font-size: clamp(52px, 8.5vw, 110px);
+  font-size: clamp(38px, 6vw, 78px);
   font-weight: 700;
-  line-height: 0.92;
-  letter-spacing: -0.04em;
+  line-height: 0.94;
+  letter-spacing: -0.03em;
   text-transform: uppercase;
   margin-bottom: 28px;
   overflow: hidden;
@@ -640,6 +668,8 @@ img { display: block; max-width: 100%; }
   border-top: 3px solid var(--glow, transparent);
   transition: background 0.3s;
   cursor: none;
+  color: inherit;
+  text-decoration: none;
 }
 .program-card:hover { background: var(--bg3); }
 .program-card:hover .card-glow { opacity: 1; }

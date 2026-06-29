@@ -13,6 +13,7 @@ const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 /* ─── INIT ─── */
 document.addEventListener('DOMContentLoaded', () => {
   initNoise();
+  initGlobalParticleGrid();   // ← grilla global reactiva al cursor
   initCursor();
   initNavbar();
   initMobileMenu();
@@ -59,6 +60,145 @@ function initNoise() {
     else                  setTimeout(() => requestAnimationFrame(drawNoise), 50);
   }
   drawNoise();
+}
+
+/* ═══════════════════════════════════════════════════════
+   GLOBAL PARTICLE GRID — fixed canvas behind all sections
+   Dot grid reacts to cursor position anywhere on page
+═══════════════════════════════════════════════════════ */
+function initGlobalParticleGrid() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (window.matchMedia('(pointer: coarse)').matches) return; // skip on touch
+
+  // Create fixed canvas behind everything
+  const canvas = document.createElement('canvas');
+  canvas.id = 'globalParticleCanvas';
+  canvas.style.cssText = `
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 1;
+  `;
+  document.body.insertBefore(canvas, document.body.firstChild);
+
+  const ctx = canvas.getContext('2d');
+  const COLS = 28, ROWS = 16;
+  const GLOW_RADIUS = 260;
+  let W, H, particles = [];
+  let mouse = { x: -9999, y: -9999 };
+  let scrollY = 0;
+  let t = 0;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    buildGrid();
+  }
+
+  function buildGrid() {
+    particles = [];
+    const gapX = W / (COLS - 1);
+    const gapY = H / (ROWS - 1);
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        particles.push({
+          ox: c * gapX,
+          oy: r * gapY,
+          x:  c * gapX,
+          y:  r * gapY,
+          size: Math.random() > 0.88 ? 1.8 : 0.75,
+          baseAlpha: 0.05 + Math.random() * 0.055,
+        });
+      }
+    }
+  }
+
+  document.addEventListener('mousemove', e => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+  }, { passive: true });
+
+  window.addEventListener('scroll', () => {
+    scrollY = window.scrollY;
+  }, { passive: true });
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    t += 0.006;
+
+    // Mouse glow halo
+    if (mouse.x > 0) {
+      const mg = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, GLOW_RADIUS);
+      mg.addColorStop(0, 'rgba(0,229,255,0.055)');
+      mg.addColorStop(0.5, 'rgba(0,229,255,0.015)');
+      mg.addColorStop(1, 'transparent');
+      ctx.fillStyle = mg;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Update positions with wave + mouse attraction
+    particles.forEach(p => {
+      const dx = mouse.x - p.ox;
+      const dy = mouse.y - p.oy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const force = Math.max(0, 1 - dist / GLOW_RADIUS);
+      const wave = Math.sin(t + p.ox * 0.018 + p.oy * 0.012) * 1.8;
+
+      p.x = p.ox + dx * force * 0.07 + wave * 0.25;
+      p.y = p.oy + dy * force * 0.07 + wave * 0.25;
+    });
+
+    // Grid lines (horizontal)
+    ctx.lineWidth = 0.5;
+    for (let r = 0; r < ROWS; r++) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(255,255,255,0.028)';
+      for (let c = 0; c < COLS; c++) {
+        const p = particles[r * COLS + c];
+        if (c === 0) ctx.moveTo(p.x, p.y);
+        else         ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+
+    // Grid lines (vertical)
+    for (let c = 0; c < COLS; c++) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(255,255,255,0.028)';
+      for (let r = 0; r < ROWS; r++) {
+        const p = particles[r * COLS + c];
+        if (r === 0) ctx.moveTo(p.x, p.y);
+        else         ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+
+    // Dots at intersections
+    particles.forEach(p => {
+      const dx   = mouse.x - p.ox;
+      const dy   = mouse.y - p.oy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const glow = Math.max(0, 1 - dist / GLOW_RADIUS);
+      const alpha = p.baseAlpha + glow * 0.55;
+      const radius = p.size + glow * 1.4;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = glow > 0.25
+        ? `rgba(0,229,255,${alpha})`
+        : `rgba(255,255,255,${alpha})`;
+      ctx.fill();
+    });
+
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', resize, { passive: true });
+  resize();
+  draw();
 }
 
 /* ═══════════════════════════════════════════════════════
